@@ -1,339 +1,408 @@
-import React, { useState, useEffect } from 'react';
-import { Upload, Home, Sofa, Sparkles, RefreshCw, Download, AlertCircle, Camera, CheckCircle2, Plus, Trash2, Layout, Layers, ShieldCheck } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FurniVision Pure AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-neutral-50 text-slate-900 font-sans min-h-screen pb-10">
 
-const apiKey = ""; // API anahtarı otomatik olarak sağlanacaktır.
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <div class="bg-blue-600 p-2 rounded-xl">
+                    <i data-lucide="box" class="text-white w-6 h-6"></i>
+                </div>
+                <h1 class="text-xl font-bold tracking-tight">FurniVision <span class="text-blue-600">Pure</span></h1>
+            </div>
+            <button id="resetBtn" class="hidden text-slate-500 hover:text-red-500 transition-colors flex items-center gap-1 text-sm font-semibold">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i> Temizle
+            </button>
+        </div>
+    </header>
 
-const App = () => {
-  const [roomImage, setRoomImage] = useState(null);
-  const [furnitureImages, setFurnitureImages] = useState([]); 
-  const [selectedIndices, setSelectedIndices] = useState([]); 
-  const [resultImage, setResultImage] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [step, setStep] = useState(1);
+    <main class="max-w-5xl mx-auto px-4 py-8">
+        <!-- Progress Steps -->
+        <div class="flex items-center justify-center gap-4 mb-8">
+            <div id="stepLine1" class="h-1.5 w-24 rounded-full bg-blue-600 shadow-sm shadow-blue-200"></div>
+            <div id="stepLine2" class="h-1.5 w-24 rounded-full bg-slate-200"></div>
+            <div id="stepLine3" class="h-1.5 w-24 rounded-full bg-slate-200"></div>
+        </div>
 
-  const handleFileUpload = (e, type) => {
-    const files = Array.from(e.target.files);
-    
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (type === 'room') {
-          setRoomImage(reader.result);
-        } else {
-          setFurnitureImages(prev => {
-            const newList = [...prev, reader.result];
-            setSelectedIndices(prevIndices => [...prevIndices, newList.length - 1]);
-            return newList;
-          });
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-  };
+        <div id="errorBox" class="hidden mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 text-red-700">
+            <i data-lucide="alert-circle" class="shrink-0"></i>
+            <p id="errorText" class="text-sm font-medium"></p>
+        </div>
 
-  const toggleSelection = (index) => {
-    setSelectedIndices(prev => 
-      prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]
-    );
-  };
+        <!-- Step 1: Uploads -->
+        <div id="step1" class="grid lg:grid-cols-12 gap-8 animate-fade-in">
+            <!-- Room Upload -->
+            <div class="lg:col-span-5 space-y-4">
+                <div class="flex items-center gap-2 mb-2">
+                    <i data-lucide="home" class="text-blue-600 w-5 h-5"></i>
+                    <h2 class="font-bold text-lg">Sabit Mekan Fotoğrafı</h2>
+                </div>
+                <label id="roomDropzone" class="relative cursor-pointer border-2 border-dashed border-slate-300 hover:border-blue-400 bg-white rounded-[2.5rem] overflow-hidden aspect-[4/3] flex flex-col items-center justify-center transition-all">
+                    <div id="roomPlaceholder" class="text-center p-6">
+                        <i data-lucide="camera" class="w-8 h-8 text-slate-300 mx-auto mb-4"></i>
+                        <p class="text-sm font-bold text-slate-600">Salon Fotoğrafını Seç</p>
+                        <p class="text-[10px] text-slate-400 mt-2 uppercase">Bu alan değişmeyecektir</p>
+                    </div>
+                    <img id="roomPreview" class="hidden w-full h-full object-cover" src="" alt="Oda">
+                    <input type="file" id="roomInput" class="hidden" accept="image/*">
+                </label>
+            </div>
 
-  const removeFurniture = (index) => {
-    const newList = furnitureImages.filter((_, i) => i !== index);
-    setFurnitureImages(newList);
-    setSelectedIndices(prev => 
-      prev.filter(i => i !== index).map(i => i > index ? i - 1 : i)
-    );
-  };
+            <!-- Furniture Upload -->
+            <div class="lg:col-span-7 space-y-4">
+                <div class="flex items-center gap-2 mb-2">
+                    <i data-lucide="sofa" class="text-blue-600 w-5 h-5"></i>
+                    <h2 class="font-bold text-lg">Ürünleri Ekle (JPEG/PNG)</h2>
+                </div>
+                <div id="furnitureGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    <!-- Dynamic Items -->
+                    <label class="aspect-square rounded-3xl border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex flex-col items-center justify-center cursor-pointer transition-all">
+                        <i data-lucide="plus" class="w-6 h-6 text-blue-500"></i>
+                        <span class="text-[10px] font-black text-slate-500 mt-2 uppercase tracking-tighter">Eşya Çek/Yükle</span>
+                        <input type="file" id="furnitureInput" class="hidden" accept="image/*" multiple>
+                    </label>
+                </div>
+            </div>
 
-  const generateVisualization = async () => {
-    if (!roomImage || selectedIndices.length === 0) {
-      setError("Lütfen salon fotoğrafını ve en az bir eşya fotoğrafını seçin.");
-      return;
-    }
+            <div class="lg:col-span-12 flex justify-center pt-8">
+                <button id="toStep2Btn" disabled class="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white px-12 py-5 rounded-[2rem] font-black text-lg shadow-xl shadow-blue-100 transition-all flex items-center gap-4 active:scale-95">
+                    İşlemi Başlat <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+                </button>
+            </div>
+        </div>
 
-    setLoading(true);
-    setError(null);
+        <!-- Step 2: Selection -->
+        <div id="step2" class="hidden animate-fade-in max-w-4xl mx-auto">
+            <div class="text-center mb-10">
+                <h2 class="text-4xl font-black mb-3 text-slate-800 tracking-tight">Akıllı Ayıklama Modu</h2>
+                <p class="text-slate-500 font-medium">Seçilen ürünlerin sadece kendisi alınacak, odanız sabit kalacaktır.</p>
+            </div>
+            <div class="grid md:grid-cols-2 gap-8">
+                <div class="relative rounded-[3rem] overflow-hidden aspect-[4/3] border-8 border-white shadow-2xl">
+                    <img id="step2RoomImg" class="w-full h-full object-cover" src="">
+                    <div id="selectionOverlay" class="absolute inset-0 bg-blue-900/10 backdrop-blur-[1px] flex items-center justify-center">
+                        <div id="floatingItems" class="flex flex-wrap justify-center gap-2 p-6"></div>
+                    </div>
+                </div>
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-3xl border border-slate-200">
+                        <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2 uppercase text-xs tracking-widest">
+                            <i data-lucide="shield-check" class="w-4 h-4 text-blue-600"></i> Arka Planı Silinecekler
+                        </h3>
+                        <div id="selectionGrid" class="grid grid-cols-3 gap-3"></div>
+                    </div>
+                    <button id="generateBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-5 rounded-[2rem] font-black text-xl shadow-2xl transition-all flex items-center justify-center gap-4 group">
+                        <i data-lucide="sparkles" class="w-6 h-6 group-hover:rotate-12 transition-transform"></i>
+                        Görseli Oluştur
+                    </button>
+                    <button id="backTo1Btn" class="w-full text-slate-400 font-bold hover:text-slate-600 transition-colors">Geri Dön</button>
+                </div>
+            </div>
+        </div>
 
-    const roomBase64 = roomImage.split(',')[1];
-    const selectedFurnitureParts = selectedIndices.map(index => ({
-      inlineData: {
-        mimeType: "image/png",
-        data: furnitureImages[index].split(',')[1]
-      }
-    }));
+        <!-- Step 3: Result -->
+        <div id="step3" class="hidden animate-fade-in max-w-4xl mx-auto">
+            <div class="bg-white p-6 rounded-[3.5rem] shadow-2xl border border-slate-100">
+                <div class="relative rounded-[2.5rem] overflow-hidden mb-8 shadow-inner">
+                    <img id="resultImg" class="w-full aspect-[4/3] object-cover" src="" alt="Result">
+                    <div class="absolute top-6 right-6">
+                        <button class="bg-white/90 backdrop-blur p-4 rounded-2xl shadow-xl hover:bg-white transition-all active:scale-90">
+                            <i data-lucide="download" class="w-6 h-6 text-blue-600"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="px-6 pb-4 text-center">
+                    <div class="inline-flex items-center gap-2 px-5 py-2 bg-blue-50 text-blue-700 rounded-full text-[10px] font-black mb-6 uppercase tracking-tighter">
+                        <i data-lucide="shield-check" class="w-4 h-4"></i> MEKAN KORUMA & ÜRÜN AYIKLAMA AKTİF
+                    </div>
+                    <h2 class="text-4xl font-black text-slate-800 mb-4 tracking-tight">Odanız Değişmedi, Mobilyalar Eklendi!</h2>
+                    <p class="text-slate-500 mb-10 max-w-lg mx-auto leading-relaxed font-medium">
+                        Yapay zeka ürünlerinizin arka planını temizledi ve salonunuzun orijinal yapısını bozmadan pikselleri eşleştirdi.
+                    </p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <button id="backTo2Btn" class="py-5 rounded-[2rem] font-black bg-slate-100 hover:bg-slate-200 text-slate-700 uppercase tracking-tight transition-all">Seçimi Düzenle</button>
+                        <button class="py-5 rounded-[2rem] font-black bg-blue-600 text-white hover:bg-blue-700 shadow-xl shadow-blue-100 uppercase tracking-tight transition-all">Siparişi Görüntüle</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
 
-    // SERT KURAL GÜNCELLEMESİ: prompt ürün değişimini yasaklayacak şekilde revize edildi.
-    const prompt = `
-      KRİTİK GÖREV: ÜRÜN SADAKATİ VE YERLEŞTİRME.
-      
-      SERT KURALLAR:
-      1. Girdi olarak verilen her bir eşya görselini (koltuk, sehpa, vb.) odanın içine ASLA DEĞİŞTİRMEDEN yerleştir. 
-      2. Ürünlerin tasarımına, rengine, dokusuna, dikiş detaylarına veya formuna %100 sadık kal. 
-      3. Ürünleri yapay zeka ile yeniden hayal etme veya modernize etme; sadece onları odanın içine taşı.
-      4. Sadece perspektif, ölçeklendirme ve gölgeleri odaya uydur.
-      
-      YERLEŞİM TALİMATI:
-      - Mobilyaları odadaki boş alanlara mantıklı bir şekilde diz. 
-      - Büyük parçaları (koltuk) odak noktasına, tamamlayıcıları (sehpa, lamba) çevresine koy.
-      - Odanın orijinal mimari yapısını ve zeminini bozma.
-    `;
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="hidden fixed inset-0 bg-slate-900/95 backdrop-blur-2xl z-50 flex flex-col items-center justify-center text-white p-6">
+        <div class="relative w-40 h-40 mb-10">
+            <div class="absolute inset-0 border-8 border-blue-500/10 rounded-full"></div>
+            <div class="absolute inset-0 border-8 border-t-blue-400 rounded-full animate-spin"></div>
+            <i data-lucide="box" class="absolute inset-0 m-auto w-12 h-12 text-blue-400 animate-pulse"></i>
+        </div>
+        <h3 class="text-3xl font-black mb-4 tracking-tighter">Arka Planlar Siliniyor</h3>
+        <p class="text-blue-100/70 max-w-sm text-center leading-relaxed font-medium">
+            Sadece ürünleriniz ayıklanıyor ve orijinal mekanınıza enjekte ediliyor. Lütfen bekleyin...
+          </p>
+    </div>
 
-    const payload = {
-      contents: [
-        {
-          parts: [
-            { text: prompt },
-            { inlineData: { mimeType: "image/png", data: roomBase64 } },
-            ...selectedFurnitureParts
-          ]
-        }
-      ],
-      generationConfig: {
-        responseModalities: ['TEXT', 'IMAGE']
-      }
-    };
+    <script>
+        const apiKey = ""; // API anahtarı çalışma ortamı tarafından sağlanacaktır.
+        
+        // State
+        let roomImage = null;
+        let furnitureImages = [];
+        let selectedIndices = [];
+        let currentStep = 1;
 
-    const callApi = async (retryCount = 0) => {
-      try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+        // Elements
+        const elements = {
+            roomInput: document.getElementById('roomInput'),
+            furnitureInput: document.getElementById('furnitureInput'),
+            roomPreview: document.getElementById('roomPreview'),
+            roomPlaceholder: document.getElementById('roomPlaceholder'),
+            furnitureGrid: document.getElementById('furnitureGrid'),
+            toStep2Btn: document.getElementById('toStep2Btn'),
+            generateBtn: document.getElementById('generateBtn'),
+            resetBtn: document.getElementById('resetBtn'),
+            loadingOverlay: document.getElementById('loadingOverlay'),
+            errorBox: document.getElementById('errorBox'),
+            errorText: document.getElementById('errorText'),
+            step1: document.getElementById('step1'),
+            step2: document.getElementById('step2'),
+            step3: document.getElementById('step3'),
+            resultImg: document.getElementById('resultImg'),
+            selectionGrid: document.getElementById('selectionGrid'),
+            floatingItems: document.getElementById('floatingItems'),
+            stepLine2: document.getElementById('stepLine2'),
+            stepLine3: document.getElementById('stepLine3'),
+            step2RoomImg: document.getElementById('step2RoomImg'),
+            backTo1Btn: document.getElementById('backTo1Btn'),
+            backTo2Btn: document.getElementById('backTo2Btn')
+        };
+
+        // File Readers
+        elements.roomInput.addEventListener('change', (e) => {
+            handleFile(e.target.files[0], 'room');
         });
 
-        if (!response.ok) throw new Error('API hatası');
+        elements.furnitureInput.addEventListener('change', (e) => {
+            Array.from(e.target.files).forEach(file => handleFile(file, 'furniture'));
+        });
 
-        const result = await response.json();
-        const generatedImageBase64 = result.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
-
-        if (generatedImageBase64) {
-          setResultImage(`data:image/png;base64,${generatedImageBase64}`);
-          setStep(3);
-        } else {
-          throw new Error("Görsel oluşturulamadı.");
+        function handleFile(file, type) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                if (type === 'room') {
+                    roomImage = reader.result;
+                    elements.roomPreview.src = roomImage;
+                    elements.roomPreview.classList.remove('hidden');
+                    elements.roomPlaceholder.classList.add('hidden');
+                    elements.roomDropzone.classList.add('border-blue-600', 'shadow-lg');
+                } else {
+                    furnitureImages.push(reader.result);
+                    selectedIndices.push(furnitureImages.length - 1);
+                    renderFurnitureGrid();
+                }
+                updateStep1Button();
+            };
+            reader.readAsDataURL(file);
         }
-      } catch (err) {
-        if (retryCount < 5) {
-          const delay = Math.pow(2, retryCount) * 1000;
-          setTimeout(() => callApi(retryCount + 1), delay);
-        } else {
-          setError("Bir sorun oluştu. Lütfen ürün sayısını azaltıp tekrar deneyin.");
-          setLoading(false);
-        }
-      }
-    };
 
-    await callApi();
-    setLoading(false);
-  };
+        function renderFurnitureGrid() {
+            // Keep the plus label, remove others
+            const labels = elements.furnitureGrid.querySelectorAll('div.relative');
+            labels.forEach(l => l.remove());
 
-  const resetApp = () => {
-    setRoomImage(null);
-    setFurnitureImages([]);
-    setSelectedIndices([]);
-    setResultImage(null);
-    setStep(1);
-    setError(null);
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-10">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="bg-emerald-600 p-2 rounded-xl">
-              <ShieldCheck className="text-white w-6 h-6" />
-            </div>
-            <h1 className="text-xl font-bold tracking-tight">FurniVision <span className="text-emerald-600">Original</span></h1>
-          </div>
-          {step > 1 && (
-            <button onClick={resetApp} className="text-slate-500 hover:text-red-500 transition-colors flex items-center gap-1 text-sm font-semibold">
-              <RefreshCw className="w-4 h-4" /> Sıfırla
-            </button>
-          )}
-        </div>
-      </header>
-
-      <main className="max-w-5xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-center gap-4 mb-8">
-          {[1, 2, 3].map((s) => (
-            <div key={s} className={`h-1.5 w-24 rounded-full transition-all duration-500 ${step >= s ? 'bg-emerald-600' : 'bg-slate-200'}`} />
-          ))}
-        </div>
-
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 text-red-700 animate-in fade-in slide-in-from-top-2">
-            <AlertCircle className="shrink-0" />
-            <p className="text-sm font-medium">{error}</p>
-          </div>
-        )}
-
-        {step === 1 && (
-          <div className="grid lg:grid-cols-12 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="lg:col-span-5 space-y-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Home className="text-emerald-600 w-5 h-5" />
-                <h2 className="font-bold text-lg">1. Salonunuzun Hali</h2>
-              </div>
-              <label className={`relative cursor-pointer border-2 border-dashed rounded-[2.5rem] overflow-hidden aspect-[4/3] flex flex-col items-center justify-center transition-all ${
-                roomImage ? 'border-emerald-600' : 'border-slate-300 hover:border-emerald-400 bg-white'
-              }`}>
-                {roomImage ? (
-                  <img src={roomImage} className="w-full h-full object-cover" alt="Oda" />
-                ) : (
-                  <div className="text-center p-6">
-                    <Camera className="w-8 h-8 text-slate-300 mx-auto mb-4" />
-                    <p className="text-sm font-bold text-slate-600">Oda Fotoğrafı Yükle</p>
-                  </div>
-                )}
-                <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'room')} />
-              </label>
-            </div>
-
-            <div className="lg:col-span-7 space-y-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Sofa className="text-emerald-600 w-5 h-5" />
-                  <h2 className="font-bold text-lg">2. Ürün Fotoğrafları (Mağaza Çekimi)</h2>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {furnitureImages.map((img, idx) => (
-                  <div key={idx} className="relative aspect-square rounded-3xl overflow-hidden border-4 border-white shadow-lg group">
-                    <img src={img} className="w-full h-full object-cover" />
-                    <button 
-                      onClick={() => removeFurniture(idx)}
-                      className="absolute top-2 right-2 p-2 bg-white/90 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all shadow-md"
-                    >
-                      <Trash2 className="w-4 h-4" />
+            furnitureImages.forEach((img, idx) => {
+                const div = document.createElement('div');
+                div.className = "relative animate-fade-in aspect-square rounded-3xl overflow-hidden border-4 border-white shadow-lg group";
+                div.innerHTML = `
+                    <img src="${img}" class="w-full h-full object-cover">
+                    <button onclick="removeFurniture(${idx})" class="absolute top-2 right-2 p-2 bg-white/90 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all shadow-md">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
-                  </div>
-                ))}
+                    <div class="absolute top-2 left-2 bg-blue-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full shadow-sm">OBJEYİ AYIKLA</div>
+                `;
+                elements.furnitureGrid.prepend(div);
+            });
+            lucide.createIcons();
+        }
+
+        window.removeFurniture = (idx) => {
+            furnitureImages.splice(idx, 1);
+            selectedIndices = selectedIndices.filter(i => i !== idx).map(i => i > idx ? i - 1 : i);
+            renderFurnitureGrid();
+            updateStep1Button();
+        };
+
+        function updateStep1Button() {
+            elements.toStep2Btn.disabled = !roomImage || furnitureImages.length === 0;
+        }
+
+        // Navigation
+        elements.toStep2Btn.addEventListener('click', () => {
+            currentStep = 2;
+            updateUI();
+        });
+
+        elements.backTo1Btn.addEventListener('click', () => {
+            currentStep = 1;
+            updateUI();
+        });
+
+        elements.backTo2Btn.addEventListener('click', () => {
+            currentStep = 2;
+            updateUI();
+        });
+
+        function updateUI() {
+            elements.step1.classList.toggle('hidden', currentStep !== 1);
+            elements.step2.classList.toggle('hidden', currentStep !== 2);
+            elements.step3.classList.toggle('hidden', currentStep !== 3);
+            elements.resetBtn.classList.toggle('hidden', currentStep === 1 && !roomImage);
+            
+            elements.stepLine2.classList.toggle('bg-blue-600', currentStep >= 2);
+            elements.stepLine3.classList.toggle('bg-blue-600', currentStep >= 3);
+
+            if (currentStep === 2) {
+                elements.step2RoomImg.src = roomImage;
+                renderSelectionGrid();
+            }
+        }
+
+        function renderSelectionGrid() {
+            elements.selectionGrid.innerHTML = '';
+            elements.floatingItems.innerHTML = '';
+
+            furnitureImages.forEach((img, idx) => {
+                const isSelected = selectedIndices.includes(idx);
                 
-                <label className="aspect-square rounded-3xl border-2 border-dashed border-slate-300 hover:border-emerald-500 hover:bg-emerald-50 flex flex-col items-center justify-center cursor-pointer transition-all">
-                  <Plus className="w-6 h-6 text-emerald-500" />
-                  <span className="text-[10px] font-black text-slate-500 mt-2 uppercase">Yeni Ürün</span>
-                  <input type="file" className="hidden" accept="image/*" multiple onChange={(e) => handleFileUpload(e, 'furniture')} />
-                </label>
-              </div>
-            </div>
+                // Grid Button
+                const btn = document.createElement('button');
+                btn.className = `relative aspect-square rounded-2xl overflow-hidden border-4 transition-all ${isSelected ? 'border-blue-500 scale-100' : 'border-transparent opacity-40 scale-90'}`;
+                btn.innerHTML = `<img src="${img}" class="w-full h-full object-cover">`;
+                btn.onclick = () => {
+                    if (selectedIndices.includes(idx)) selectedIndices = selectedIndices.filter(i => i !== idx);
+                    else selectedIndices.push(idx);
+                    renderSelectionGrid();
+                };
+                elements.selectionGrid.appendChild(btn);
 
-            <div className="lg:col-span-12 flex justify-center pt-8">
-              <button
-                onClick={() => setStep(2)}
-                disabled={!roomImage || furnitureImages.length === 0}
-                className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white px-12 py-5 rounded-[2rem] font-black text-lg shadow-xl transition-all flex items-center gap-4 active:scale-95"
-              >
-                Görünümü Hazırla <CheckCircle2 className="w-6 h-6" />
-              </button>
-            </div>
-          </div>
-        )}
+                // Floating Preview
+                if (isSelected) {
+                    const div = document.createElement('div');
+                    div.className = "w-20 h-20 rounded-2xl border-2 border-white overflow-hidden shadow-2xl animate-pulse";
+                    div.innerHTML = `<img src="${img}" class="w-full h-full object-cover">`;
+                    elements.floatingItems.appendChild(div);
+                }
+            });
+        }
 
-        {step === 2 && (
-          <div className="animate-in fade-in zoom-in-95 max-w-4xl mx-auto">
-            <div className="text-center mb-10">
-              <h2 className="text-4xl font-black mb-3 text-slate-800 tracking-tight">Ürün Sadakati Aktif</h2>
-              <p className="text-slate-500 font-medium">Yüklediğiniz ürünlerin tasarımı asla değiştirilmeyecektir.</p>
-            </div>
+        // Gemini Integration
+        elements.generateBtn.addEventListener('click', async () => {
+            if (selectedIndices.length === 0) return;
 
-            <div className="grid md:grid-cols-2 gap-8">
-              <div className="relative rounded-[3rem] overflow-hidden aspect-[4/3] border-8 border-white shadow-2xl">
-                <img src={roomImage} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-emerald-950/20 flex items-center justify-center backdrop-blur-[2px]">
-                   <div className="flex flex-wrap justify-center gap-3 p-6">
-                      {selectedIndices.map(idx => (
-                        <div key={idx} className="w-16 h-16 rounded-2xl border-2 border-white overflow-hidden shadow-lg animate-pulse">
-                          <img src={furnitureImages[idx]} className="w-full h-full object-cover" />
-                        </div>
-                      ))}
-                   </div>
-                </div>
-              </div>
+            elements.loadingOverlay.classList.remove('hidden');
+            elements.errorBox.classList.add('hidden');
 
-              <div className="space-y-6">
-                <div className="bg-white p-6 rounded-3xl border border-slate-200">
-                  <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5 text-emerald-600" /> Yerleştirilecek Ürünler
-                  </h3>
-                  <div className="grid grid-cols-3 gap-3">
-                    {furnitureImages.map((img, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => toggleSelection(idx)}
-                        className={`relative aspect-square rounded-2xl overflow-hidden border-4 transition-all ${
-                          selectedIndices.includes(idx) ? 'border-emerald-500 scale-100' : 'border-transparent opacity-40 scale-90'
-                        }`}
-                      >
-                        <img src={img} className="w-full h-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
+            const roomBase64 = roomImage.split(',')[1];
+            const selectedFurnitureParts = selectedIndices.map(index => ({
+                inlineData: {
+                    mimeType: "image/png",
+                    data: furnitureImages[index].split(',')[1]
+                }
+            }));
 
-                <button
-                  onClick={generateVisualization}
-                  disabled={loading || selectedIndices.length === 0}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-5 rounded-[2rem] font-black text-xl shadow-2xl transition-all flex items-center justify-center gap-4"
-                >
-                  {loading ? <RefreshCw className="animate-spin w-6 h-6" /> : "Gerçek Görüntüyü Oluştur"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+            const prompt = `
+                GÖREV: AKILLI ÜRÜN YERLEŞTİRME VE ARKA PLAN KORUMA.
+                SERT KURALLAR (HİÇBİR ŞEKİLDE ÇİĞNENEMEZ):
+                1. MEKAN KORUMASI: Girdi 1'deki (Salon) arka planı, duvarları, pencereleri, zemini ve mevcut mimariyi ASLA DEĞİŞTİRMEYİN. Odanın yapısı %100 aynı kalmalıdır.
+                2. ÜRÜN AYIKLAMA: Ürün görselleri (diğer girdiler) JPEG olsa bile, ürünün kendi arka planını (mağaza ortamı, beyaz fon vb.) TAMAMEN SİLİN. Sadece ürünü bir PNG objesi gibi alın.
+                3. TASARIM SADAKATİ: Ürünlerin tasarımına, rengine ve formuna dokunmayın. Ürünü yeniden çizmek veya modernize etmek yasaktır.
+                4. EKLEME YASAKTIR: Odaya ekstra bitki, halı, ışık veya dekoratif obje EKLEMEYİN. Sadece yüklenen ürünleri yerleştirin.
+                UYGULAMA:
+                - Ürünleri odadaki mantıklı boşluklara (zemin üzerine) yerleştirin.
+                - Ürünlerin odanın perspektifiyle uyumlu olması için sadece ölçeklendirme ve gerçekçi gölge ekleme işlemi yapın.
+            `;
 
-        {step === 3 && resultImage && (
-          <div className="animate-in fade-in scale-95 max-w-4xl mx-auto">
-            <div className="bg-white p-6 rounded-[3.5rem] shadow-2xl border border-slate-100">
-              <div className="relative rounded-[2.5rem] overflow-hidden mb-8 shadow-inner">
-                <img src={resultImage} className="w-full aspect-[4/3] object-cover" alt="Result" />
-                <div className="absolute top-6 right-6">
-                  <button className="bg-white/90 backdrop-blur p-4 rounded-2xl shadow-xl hover:bg-white transition-all">
-                    <Download className="w-6 h-6 text-emerald-600" />
-                  </button>
-                </div>
-              </div>
-              
-              <div className="px-6 pb-4 text-center">
-                <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-50 text-emerald-700 rounded-full text-xs font-black mb-6 uppercase tracking-widest">
-                  <ShieldCheck className="w-4 h-4" /> Orijinal Ürün Garantili Görünüm
-                </div>
-                <h2 className="text-4xl font-black text-slate-800 mb-4">Yeni Salonunuz Hazır!</h2>
-                <p className="text-slate-500 mb-10 max-w-lg mx-auto leading-relaxed font-medium">
-                  Seçtiğiniz ürünler, mağazadaki tasarımlarına tamamen sadık kalınarak salonunuza yerleştirildi.
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <button onClick={() => setStep(2)} className="py-5 rounded-[2rem] font-black bg-slate-100 hover:bg-slate-200 text-slate-700 uppercase">
-                    Farklı Ürünler Dene
-                  </button>
-                  <button className="py-5 rounded-[2rem] font-black bg-emerald-600 text-white hover:bg-emerald-700 shadow-xl shadow-emerald-100 uppercase">
-                    Siparişi Tamamla
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
+            const payload = {
+                contents: [{
+                    parts: [
+                        { text: prompt },
+                        { inlineData: { mimeType: "image/png", data: roomBase64 } },
+                        ...selectedFurnitureParts
+                    ]
+                }],
+                generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
+            };
 
-      {loading && (
-        <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-50 flex flex-col items-center justify-center text-white p-6">
-          <div className="relative w-40 h-40 mb-10">
-            <div className="absolute inset-0 border-8 border-emerald-500/20 rounded-full"></div>
-            <div className="absolute inset-0 border-8 border-t-emerald-400 rounded-full animate-spin"></div>
-            <ShieldCheck className="absolute inset-0 m-auto w-12 h-12 text-emerald-400 animate-pulse" />
-          </div>
-          <h3 className="text-3xl font-black mb-4">Ürün Tasarımı Korunuyor</h3>
-          <p className="text-slate-300 max-w-sm text-center leading-relaxed font-medium">
-            Görselleriniz işleniyor... Ürünlerin orijinal detaylarına sadık kalınarak odaya yerleştiriliyor.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-};
+            const callWithRetry = async (retryCount = 0) => {
+                try {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
 
-export default App;
+                    if (!response.ok) throw new Error('API hatası');
+
+                    const result = await response.json();
+                    const generatedImageBase64 = result.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+
+                    if (generatedImageBase64) {
+                        elements.resultImg.src = `data:image/png;base64,${generatedImageBase64}`;
+                        currentStep = 3;
+                        updateUI();
+                    } else {
+                        throw new Error("Görsel oluşturulamadı.");
+                    }
+                } catch (err) {
+                    if (retryCount < 5) {
+                        const delay = Math.pow(2, retryCount) * 1000;
+                        setTimeout(() => callWithRetry(retryCount + 1), delay);
+                    } else {
+                        showError("Görselleştirme sırasında bir sorun oluştu. Lütfen ürün sayısını azaltıp tekrar deneyin.");
+                    }
+                } finally {
+                    if (retryCount >= 5 || currentStep === 3) elements.loadingOverlay.classList.add('hidden');
+                }
+            };
+
+            await callWithRetry();
+        });
+
+        function showError(msg) {
+            elements.errorText.innerText = msg;
+            elements.errorBox.classList.remove('hidden');
+            elements.loadingOverlay.classList.add('hidden');
+        }
+
+        elements.resetBtn.addEventListener('click', () => {
+            roomImage = null;
+            furnitureImages = [];
+            selectedIndices = [];
+            currentStep = 1;
+            elements.roomPreview.classList.add('hidden');
+            elements.roomPlaceholder.classList.remove('hidden');
+            elements.roomDropzone.classList.remove('border-blue-600', 'shadow-lg');
+            renderFurnitureGrid();
+            updateUI();
+            updateStep1Button();
+        });
+
+        // Init
+        lucide.createIcons();
+    </script>
+</body>
+</html>
